@@ -46,25 +46,48 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use skynet_substrate::{
+	CommonOptions, DownloadError, DownloadOptions, GetEntryOptions, RequestError,
+	SetEntryDataOptions, UploadOptions,
+};
 use sp_core::crypto::KeyTypeId;
-use sp_std::str;
 use sp_runtime::traits::UniqueSaturatedInto;
+use sp_std::str;
 
 #[cfg(test)]
 mod tests;
 
 pub use pallet::*;
 
+// ====================
+// CUSTOMIZABLE OPTIONS
+// ====================
+
 // Here we define the keys used to sign the registry entry on Skynet.
-// This will likely need to be unique-per-node, and clients can reference aggregate data from various nodes.
+//
+// This will likely need to be unique-per-node, and clients can reference
+// aggregate data from various nodes.
 const PUBLIC_KEY: &str = "658b900df55e983ce85f3f9fb2a088d568ab514e7bbda51cfbfb16ea945378d9";
 const PRIVATE_KEY: &str = "7caffac49ac914a541b28723f11776d36ce81e7b9b0c96ccacd1302db429c79c658b900df55e983ce85f3f9fb2a088d568ab514e7bbda51cfbfb16ea945378d9";
 const DATA_KEY: &str = "block-heights-test";
 
+// The portal URL to use.
+const PORTAL_URL: &str = "https://siasky.net";
+// The API key to use for authenticated portals. Can be set with e.g.
+// `Some("your_key")`.
+const SKYNET_API_KEY: Option<&str> = None;
+
+// ===========================
+// END OF CUSTOMIZABLE OPTIONS
+// ===========================
+
+const SKYNET_COMMON_OPTIONS: CommonOptions =
+	CommonOptions { portal_url: PORTAL_URL, skynet_api_key: SKYNET_API_KEY, ..Default::default() };
+
 /// Our error type.
 #[derive(Debug)]
 enum Error {
-	GetHistoricalHeightError(skynet_substrate::DownloadError),
+	GetHistoricalHeightError(DownloadError),
 }
 
 #[frame_support::pallet]
@@ -74,8 +97,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
-	}
+	pub trait Config: frame_system::Config {}
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
@@ -101,8 +123,12 @@ pub mod pallet {
 			log::info!("Current block: {:?} (parent hash: {:?})", block_number, parent_hash);
 
 			// Get resolver skylink for reading historical height below.
-			let skylink_bytes =
-				skynet_substrate::get_entry_link(PUBLIC_KEY, DATA_KEY, None).unwrap();
+			let skylink_bytes = skynet_substrate::get_entry_link(
+				PUBLIC_KEY,
+				DATA_KEY,
+				Some(&GetEntryOptions { common: SKYNET_COMMON_OPTIONS, ..Default::default() }),
+			)
+			.unwrap();
 			let skylink = str::from_utf8(&skylink_bytes).unwrap();
 			log::info!("Entry link: {:?}", skylink);
 
@@ -121,7 +147,7 @@ pub mod pallet {
 				},
 				Err(e) => {
 					log::info!("Error: {:?}", e);
-					return
+					return;
 				},
 			};
 
@@ -132,7 +158,11 @@ pub mod pallet {
 			let result = skynet_substrate::upload_bytes(
 				&average_height_bytes,
 				DATA_KEY,
-				Some(&skynet_substrate::UploadOptions { timeout: 30_000, ..Default::default() }),
+				Some(&UploadOptions {
+					common: SKYNET_COMMON_OPTIONS,
+					timeout: 30_000,
+					..Default::default()
+				}),
 			);
 			if let Ok(skylink_bytes) = result {
 				let skylink = str::from_utf8(&skylink_bytes).unwrap();
@@ -140,7 +170,15 @@ pub mod pallet {
 				log::info!("Uploaded average height! Skylink: {:?}", skylink);
 
 				// Set the skylink in the v2 resolver skylink with the result from upload.
-				let _ = skynet_substrate::set_data_link(PRIVATE_KEY, DATA_KEY, skylink, None);
+				let _ = skynet_substrate::set_data_link(
+					PRIVATE_KEY,
+					DATA_KEY,
+					skylink,
+					Some(SetEntryDataOptions {
+						common: SKYNET_COMMON_OPTIONS,
+						..Default::default()
+					}),
+				);
 			}
 		}
 	}
@@ -167,23 +205,24 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Gets the historical average height from Skynet. Returns `Ok(None)` if we do 
+	/// Gets the historical average height from Skynet. Returns `Ok(None)` if we do
 	/// not have historical data.
 	fn get_historical_height(skylink: &str) -> Result<Option<u64>, Error> {
 		// Check to see if we have already saved a block height average
-		let historical_height = skynet_substrate::download_bytes(skylink, None);
+		let historical_height = skynet_substrate::download_bytes(
+			skylink,
+			Some(&DownloadOptions { common: SKYNET_COMMON_OPTIONS, ..Default::default() }),
+		);
 		log::info!("Historical height: {:?}", historical_height);
 
 		match historical_height {
 			// If we get a 404, return None to indicate that there is no historical height.
-			Err(skynet_substrate::DownloadError::RequestError(
-				skynet_substrate::RequestError::UnexpectedStatus(404),
-			)) => Ok(None),
+			Err(DownloadError::RequestError(RequestError::UnexpectedStatus(404))) => Ok(None),
 			Err(e) => Err(Error::GetHistoricalHeightError(e)),
 			Ok(data) => {
 				// If data isn't parsable, return None and we'll reset.
 				if data.len() != 8 {
-					return Ok(None)
+					return Ok(None);
 				}
 
 				// Decode the returned data to a u64 from Vec<u8>.

@@ -1,22 +1,14 @@
-# Substrate &middot; [![GitHub license](https://img.shields.io/badge/license-GPL3%2FApache2-blue)](#LICENSE) [![GitLab Status](https://gitlab.parity.io/parity/substrate/badges/master/pipeline.svg)](https://gitlab.parity.io/parity/substrate/pipelines) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/CONTRIBUTING.adoc) [![Matrix](https://img.shields.io/matrix/substrate-technical:matrix.org)](https://matrix.to/#/#substrate-technical:matrix.org)
+# Skynet Substrate Offchain Worker Node
 
-<p align="center">
-  <img src="/docs/media/sub.gif">
-</p>
-
-Substrate is a next-generation framework for blockchain innovation 🚀.
+Example Substrate node featuring Skynet offchain worker example pallet.
 
 ## Trying it out
 
 See the example Skynet offchain worker [here](https://github.com/SkynetLabs/skynet-substrate-offchain-worker-node/tree/skynet-substrate/frame/examples/offchain-worker). Follow the instructions there to try it out!
 
-## Contributions & Code of Conduct
+## Substrate
 
-Please follow the contributions guidelines as outlined in [`docs/CONTRIBUTING.adoc`](docs/CONTRIBUTING.adoc). In all communications and contributions, this project follows the [Contributor Covenant Code of Conduct](docs/CODE_OF_CONDUCT.md).
-
-## Security
-
-The security policy and procedures can be found in [`docs/SECURITY.md`](docs/SECURITY.md).
+See the official repository [here](https://github.com/paritytech/substrate).
 
 ## License
 
